@@ -2,10 +2,16 @@
 
 # Mcmahon pairing for MGA tournament
 
+import collections
+import os
 import random
 import unittest
 
+import jinja2
 import yaml
+
+
+AGA_RESULTS_TEMPLATE = 'aga_results_template.txt'
 
 
 class Player(object):
@@ -73,16 +79,22 @@ class Match(object):
 
 class Tournament(object):
 
-    def __init__(self, players, id_ctr, rounds, old_pairs, current_players):
+    def __init__(self, players, id_ctr, rounds, old_pairs, current_players, name, place, start,
+                 end, rules):
         self.players = players
         self.id_ctr = id_ctr
         self.rounds = rounds
         self.old_pairs = old_pairs
         self.current_players = current_players
+        self.name = name
+        self.place = place
+        self.start = start
+        self.end = end
+        self.rules = rules
 
     @classmethod
     def new_tournament(cls, players=None):
-        tournament = cls({}, 0, [], set(), set())
+        tournament = cls({}, 0, [], set(), set(), '', '', '', '', '')
         if players is not None:
             for player in players:
                 tournament.add_player(player)
@@ -306,6 +318,29 @@ class Tournament(object):
                                                      self.players[board.black].name))
         return '\n'.join(res)
 
+    def aga_results(self, template_path=AGA_RESULTS_TEMPLATE):
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(current_dir))
+        template = env.get_template(template_path)
+        Game = collections.namedtuple('Game', ['w_id', 'b_id', 'winner', 'handi', 'komi'])
+        games = []
+        for idx, round_ in enumerate(self.rounds):
+            if self.round_is_finished(idx):
+                for match in round_.values():
+                    white = self.players[match.white]
+                    black = self.players[match.black]
+                    if match.winner == match.black:
+                        winner_str = 'b'
+                    else:
+                        winner_str = 'w'
+                    games.append(Game(white.aga_id, black.aga_id, winner_str, 0, 7))
+        Player = collections.namedtuple('Player', ['aga_id', 'name', 'rank'])
+        players = []
+        for player in self.players.values():
+            rank_str = '{}{}'.format(abs(player.rank), 'D' if player.rank > 0 else 'K')
+            players.append(Player(player.aga_id, player.name, rank_str))
+        return template.render(tournament=self, players=players, games=games)
+
 
 def tournament_representer(dumper, data):
     return dumper.represent_mapping('!tournament', data.__dict__)
@@ -316,7 +351,9 @@ yaml.add_representer(Tournament, tournament_representer)
 def tournament_constructor(loader, node):
     tourn_dict = loader.construct_mapping(node)
     return Tournament(tourn_dict['players'], tourn_dict['id_ctr'], tourn_dict['rounds'],
-                      tourn_dict['old_pairs'], tourn_dict['current_players'])
+                      tourn_dict['old_pairs'], tourn_dict['current_players'], tourn_dict['name'],
+                      tourn_dict['place'], tourn_dict['start'], tourn_dict['end'],
+                      tourn_dict['rules'])
 
 yaml.add_constructor('!tournament', tournament_constructor)
 
@@ -357,6 +394,32 @@ class HandiTournament(Tournament):
                        abs(white.rank - black.rank)))
         return '\n'.join(res)
 
+    def aga_results(self, template_path=AGA_RESULTS_TEMPLATE):
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(current_dir))
+        template = env.get_template(template_path)
+        Game = collections.namedtuple('Game', ['w_id', 'b_id', 'winner', 'handi', 'komi'])
+        games = []
+        for idx, round_ in enumerate(self.rounds):
+            if self.round_is_finished(idx):
+                for match in round_.values():
+                    white = self.players[match.white]
+                    black = self.players[match.black]
+                    if match.winner == match.black:
+                        winner_str = 'b'
+                    else:
+                        winner_str = 'w'
+                    diff = abs(white.rank - black.rank)
+                    handi = 0 if diff == 1 else diff
+                    komi = 7 if diff == 0 else 0
+                    games.append(Game(white.aga_id, black.aga_id, winner_str, handi, komi))
+        Player = collections.namedtuple('Player', ['aga_id', 'name', 'rank'])
+        players = []
+        for player in self.players.values():
+            rank_str = '{}{}'.format(abs(player.rank), 'D' if player.rank > 0 else 'K')
+            players.append(Player(player.aga_id, player.name, rank_str))
+        return template.render(tournament=self, players=players, games=games)
+
 
 def handi_tournament_representer(dumper, data):
     return dumper.represent_mapping('!handitournament', data.__dict__)
@@ -367,7 +430,9 @@ yaml.add_representer(HandiTournament, handi_tournament_representer)
 def handi_tournament_constructor(loader, node):
     tourn_dict = loader.construct_mapping(node)
     return HandiTournament(tourn_dict['players'], tourn_dict['id_ctr'], tourn_dict['rounds'],
-                           tourn_dict['old_pairs'], tourn_dict['current_players'])
+                           tourn_dict['old_pairs'], tourn_dict['current_players'],
+                           tourn_dict['name'], tourn_dict['place'], tourn_dict['start'],
+                           tourn_dict['end'], tourn_dict['rules'])
 
 yaml.add_constructor('!handitournament', handi_tournament_constructor)
 

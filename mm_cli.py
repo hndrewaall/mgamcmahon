@@ -178,5 +178,18 @@ class MMCli(object):
         h.close()
         print('New tournament started and written to {}'.format(args.filename))
 
+    def agaresults(self):
+        parser = argparse.ArgumentParser(description='Print results file for submission to AGA')
+        parser.add_argument('--filename', '-f',
+                            action="store",
+                            default="tournament.yaml",
+                            help="Default is 'tournament.yaml'")
+        args = parser.parse_args(sys.argv[2:])
+
+        h = open(args.filename, 'r')
+        tournament = yaml.load(h.read())
+        h.close()
+        print(tournament.aga_results())
+
 if __name__ == '__main__':
     MMCli()
