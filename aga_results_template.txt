@@ -1,0 +1,14 @@
+TOURNEY {{ tournament.name }}, {{ tournament.place }}
+        start={{ tournament.start }}
+        finish={{ tournament.end }}
+        rules={{ tournament.rules }}
+
+PLAYERS
+{%- for player in players %}
+{{ player.aga_id }} {{ player.name }} {{ player.rank }}
+{%- endfor %}
+
+GAMES (w b winner handi komi)
+{%- for game in games %}
+{{ game.w_id }} {{ game.b_id }} {{ game.winner }} {{ game.handi }} {{ game.komi }}
+{%- endfor %}
